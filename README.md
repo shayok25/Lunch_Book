@@ -150,42 +150,22 @@ Value: (paste clipboard)
 ```js
 const fs = require('fs');
 const { chromium } = require('playwright');
-const nodemailer = require('nodemailer');
-
-/* =====================================================
-   📧 MAIL SETUP
-   ===================================================== */
-
-async function sendMail({ subject, text, attachments = [] }) {
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS
-    }
-  });
-
-  await transporter.sendMail({
-    from: `Lunch Bot 🍱 <${process.env.MAIL_USER}>`,
-    to: process.env.MAIL_TO,
-    subject,
-    text,
-    attachments
-  });
-}
 
 /* =====================================================
    🇧🇩 HOLIDAY CHECK
    ===================================================== */
 
-const holidayData = JSON.parse(fs.readFileSync('holidays.json', 'utf8'));
+const holidayData = JSON.parse(
+  fs.readFileSync('holidays.json', 'utf8')
+);
+
 const holidays = holidayData.holidays;
 
 // Bangladesh time
 const now = new Date(
-  new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' })
+  new Date().toLocaleString('en-US', {
+    timeZone: 'Asia/Dhaka'
+  })
 );
 
 const tomorrow = new Date(now);
@@ -195,152 +175,182 @@ const tomorrowStr = tomorrow.toLocaleDateString('en-CA', {
   timeZone: 'Asia/Dhaka'
 });
 
-// Holiday detection
 const tomorrowHoliday = holidays.find(h => {
   if (h.date === tomorrowStr) return true;
 
   if (h.start_date && h.end_date) {
-    return tomorrowStr >= h.start_date && tomorrowStr <= h.end_date;
+    return (
+      tomorrowStr >= h.start_date &&
+      tomorrowStr <= h.end_date
+    );
   }
 
   return false;
 });
 
 /* =====================================================
-   🚫 HOLIDAY EXIT
+   🧹 CLEANUP
    ===================================================== */
 
-(async () => {
-
-if (tomorrowHoliday) {
-  console.log(`🎉 Holiday: ${tomorrowHoliday.name}`);
-
-  fs.writeFileSync(
-    'booking-status.txt',
-    `SKIPPED_HOLIDAY|${tomorrowStr}|${tomorrowHoliday.name}`
-  );
-
-  await sendMail({
-    subject: "📅 Lunch Booking Skipped — Holiday",
-    text: `📅 Tomorrow is a holiday.
-
-🗓 Date: ${tomorrowStr}
-🎉 Reason: ${tomorrowHoliday.name}
-
-🍱 Lunch booking skipped automatically.`
-  });
-
-  process.exit(0);
-}
-
-/* =====================================================
-   🔐 AUTH
-   ===================================================== */
-
-if (!process.env.ULKA_AUTH_JSON) {
-  throw new Error('ULKA_AUTH_JSON missing');
-}
-
-fs.writeFileSync(
-  'ulka-auth.json',
-  Buffer.from(process.env.ULKA_AUTH_JSON, 'base64')
-);
-
-/* =====================================================
-   🍱 BOOKING LOGIC
-   ===================================================== */
-
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 5000;
-
-for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-  let browser;
-
+function cleanupAuthFile() {
   try {
-    console.log(`🔁 Attempt ${attempt}`);
-
-    browser = await chromium.launch({ headless: true });
-
-    const context = await browser.newContext({
-      storageState: 'ulka-auth.json'
-    });
-
-    const page = await context.newPage();
-
-    await page.goto('https://www.ulka.autos/lunch-booking', {
-      timeout: 60000
-    });
-
-    await page.waitForSelector('[role="switch"]', { timeout: 60000 });
-    await page.waitForTimeout(5000);
-
-    const result = await page.evaluate(() => {
-      const sw = document.querySelector('[role="switch"]');
-      if (!sw) return 'NO_SWITCH_FOUND';
-
-      const aria = sw.getAttribute('aria-checked');
-      const disabled =
-        sw.classList.contains('ant-switch-disabled') ||
-        sw.hasAttribute('disabled');
-
-      if (aria === 'true' || disabled) {
-        return 'ALREADY_BOOKED';
-      }
-
-      sw.click();
-      return 'CLICKED_TO_BOOK';
-    });
-
-    await page.waitForTimeout(2000);
-    await page.screenshot({ path: 'final-state.png', fullPage: true });
-
-    console.log('Result:', result);
-
-    if (result === 'CLICKED_TO_BOOK') {
-      fs.writeFileSync('booking-status.txt', 'BOOKED');
-
-      await sendMail({
-        subject: "✅ Lunch Booking Successful",
-        text: "🍱 Lunch booking completed.\n\nScreenshot attached.",
-        attachments: [
-          { filename: 'final-state.png', path: 'final-state.png' }
-        ]
-      });
-
-    } else {
-      fs.writeFileSync('booking-status.txt', 'ALREADY_BOOKED');
-
-      await sendMail({
-        subject: "ℹ️ Lunch Already Booked",
-        text: "Lunch was already booked. No action taken."
-      });
+    if (fs.existsSync('ulka-auth.json')) {
+      fs.unlinkSync('ulka-auth.json');
     }
-
-    await browser.close();
-    process.exit(0);
-
   } catch (err) {
-    console.error(`❌ Attempt ${attempt} failed`);
-    console.error(err);
-
-    if (browser) await browser.close().catch(() => {});
-
-    if (attempt === MAX_RETRIES) {
-      fs.writeFileSync('booking-status.txt', 'FAILED');
-
-      await sendMail({
-        subject: "❌ Lunch Booking Failed",
-        text: "Booking failed after multiple attempts."
-      });
-
-      process.exit(1);
-    }
-
-    console.log(`⏳ Retrying in ${RETRY_DELAY_MS / 1000}s...`);
-    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+    console.error('Cleanup failed:', err.message);
   }
 }
 
+/* =====================================================
+   🚀 MAIN
+   ===================================================== */
+
+(async () => {
+  try {
+
+    /* =====================================================
+       🚫 HOLIDAY EXIT
+       ===================================================== */
+
+    if (tomorrowHoliday) {
+      console.log(`🎉 Holiday: ${tomorrowHoliday.name}`);
+
+      fs.writeFileSync(
+        'booking-status.txt',
+        `SKIPPED_HOLIDAY|${tomorrowStr}|${tomorrowHoliday.name}`
+      );
+
+      console.log('🍱 Lunch booking skipped (holiday).');
+      process.exit(0);
+    }
+
+    /* =====================================================
+       🔐 AUTH
+       ===================================================== */
+
+    if (!process.env.ULKA_AUTH_JSON) {
+      throw new Error('ULKA_AUTH_JSON missing');
+    }
+
+    fs.writeFileSync(
+      'ulka-auth.json',
+      Buffer.from(process.env.ULKA_AUTH_JSON, 'base64')
+    );
+
+    /* =====================================================
+       🍱 BOOKING LOGIC
+       ===================================================== */
+
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 5000;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      let browser;
+
+      try {
+        console.log(`🔁 Attempt ${attempt}`);
+
+        browser = await chromium.launch({
+          headless: true,
+          args: ['--disable-dev-shm-usage', '--no-sandbox']
+        });
+
+        const context = await browser.newContext({
+          storageState: 'ulka-auth.json'
+        });
+
+        const page = await context.newPage();
+
+        await page.goto(
+          'https://www.ulka.autos/lunch-booking',
+          {
+            timeout: 60000,
+            waitUntil: 'networkidle'
+          }
+        );
+
+        await page.waitForSelector('[role="switch"]', {
+          timeout: 60000
+        });
+
+        await page.waitForTimeout(5000);
+
+        const result = await page.evaluate(async () => {
+          const sw = document.querySelector('[role="switch"]');
+
+          if (!sw) return 'NO_SWITCH_FOUND';
+
+          const aria = sw.getAttribute('aria-checked');
+
+          const disabled =
+            sw.classList.contains('ant-switch-disabled') ||
+            sw.hasAttribute('disabled');
+
+          if (aria === 'true' || disabled) {
+            return 'ALREADY_BOOKED';
+          }
+
+          sw.click();
+
+          await new Promise(r => setTimeout(r, 1500));
+
+          return sw.getAttribute('aria-checked') === 'true'
+            ? 'CLICKED_TO_BOOK'
+            : 'CLICK_FAILED';
+        });
+
+        console.log('Result:', result);
+
+        await page.waitForTimeout(2000);
+
+        await page.screenshot({
+          path: 'final-state.png',
+          fullPage: true
+        });
+
+        if (result === 'CLICKED_TO_BOOK') {
+          fs.writeFileSync('booking-status.txt', 'BOOKED');
+          console.log('✅ Booking successful');
+        } 
+        else if (result === 'ALREADY_BOOKED') {
+          fs.writeFileSync('booking-status.txt', 'ALREADY_BOOKED');
+          console.log('ℹ️ Already booked');
+        } 
+        else {
+          throw new Error(`Unexpected result: ${result}`);
+        }
+
+        await browser.close();
+        cleanupAuthFile();
+        process.exit(0);
+
+      } catch (err) {
+        console.error(`❌ Attempt ${attempt} failed`);
+        console.error(err);
+
+        if (browser) {
+          await browser.close().catch(() => {});
+        }
+
+        if (attempt === MAX_RETRIES) {
+          fs.writeFileSync('booking-status.txt', 'FAILED');
+          console.error('❌ Booking failed after retries');
+          cleanupAuthFile();
+          process.exit(1);
+        }
+
+        console.log(`⏳ Retrying in ${RETRY_DELAY_MS / 1000}s...`);
+
+        await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+      }
+    }
+
+  } catch (err) {
+    console.error(err);
+    cleanupAuthFile();
+    process.exit(1);
+  }
 })();
 ```
 
@@ -355,7 +365,7 @@ name: Auto Lunch Booking
 
 on:
   schedule:
-    # Sunday → Thursday at 08:00 AM Bangladesh time (UTC+6)
+    # Sunday–Thursday at 08:00 AM Bangladesh time (UTC+6)
     - cron: '0 2 * * 0,1,2,3,4'
   workflow_dispatch:
 
@@ -366,43 +376,47 @@ jobs:
   book-lunch:
     runs-on: ubuntu-latest
 
+    container:
+      image: mcr.microsoft.com/playwright:v1.60.0-jammy
+
+    timeout-minutes: 20
+
     env:
-      MAIL_USER: ${{ secrets.MAIL_USER }}
-      MAIL_PASS: ${{ secrets.MAIL_PASS }}
-      MAIL_TO: ${{ secrets.MAIL_TO }}
       ULKA_AUTH_JSON: ${{ secrets.ULKA_AUTH_JSON }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 24
+      - uses: actions/checkout@v5
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Chromium
-        run: npx playwright install chromium
-
       - name: Clean old artifacts
-        run: rm -f final-state.png booking-status.txt
+        run: |
+          rm -f final-state.png
+          rm -f booking-status.txt
+          rm -f ulka-auth.json
 
       - name: Run lunch booking bot
         run: node auto-run.js
 
       - name: Commit screenshot (only if booked)
         run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+
           if [ -f booking-status.txt ]; then
             STATUS=$(cat booking-status.txt)
+
             if [ "$STATUS" = "BOOKED" ]; then
               git config user.name "github-actions"
               git config user.email "github-actions@github.com"
+
               git add final-state.png
-              git commit -m "📸 Update lunch booking screenshot [auto]" || echo "No changes"
-              git push origin main
+
+              if ! git diff --cached --quiet; then
+                git commit -m "📸 Update lunch booking screenshot [auto]"
+                git push origin HEAD:${GITHUB_REF_NAME}
+              fi
             fi
           fi
 ```
