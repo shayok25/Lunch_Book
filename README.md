@@ -51,7 +51,7 @@ https://nodejs.org/dist/
 
 Choose:
 ```powershell
-node-v20.x.x-win-x64.zip
+node-v24.x.x-win-x64.zip
 ```
 
 Extract to:
