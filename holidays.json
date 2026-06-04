@@ -1,0 +1,100 @@
+{
+  "country": "Bangladesh",
+  "year": 2026,
+  "source": "ULKA Holiday Calendar 2026",
+  "holidays": [
+    {
+      "date": "2026-02-04",
+      "name": "Shab-e-Barat",
+      "type": "Executive Order",
+      "remarks": "Subject to moon sighting"
+    },
+    {
+      "date": "2026-02-11",
+      "name": "Election Holiday",
+      "type": "General"
+    },
+    {
+      "date": "2026-02-12",
+      "name": "Election Holiday",
+      "type": "Executive Order"
+    },
+    {
+      "date": "2026-02-13",
+      "name": "Casual Leave",
+      "type": "Leave"
+    },
+    {
+      "start_date": "2026-02-19",
+      "end_date": "2026-03-29",
+      "name": "Ramadan Break",
+      "type": "Special Break",
+      "remarks": "Includes Ramadan and Eid-related holidays; subject to moon sighting"
+    },
+    {
+      "date": "2026-03-26",
+      "name": "Independence Day",
+      "type": "General"
+    },
+    {
+      "date": "2026-04-14",
+      "name": "Bengali New Year",
+      "type": "Executive Order"
+    },
+    {
+      "date": "2026-05-01",
+      "name": "May Day + Buddha Purnima",
+      "type": "General",
+      "remarks": "Subject to moon sighting"
+    },
+    {
+      "start_date": "2026-05-25",
+      "end_date": "2026-06-01",
+      "name": "Eid ul-Adha Holiday",
+      "type": "Executive Order",
+      "remarks": "Subject to moon sighting"
+    },
+    {
+      "date": "2026-06-26",
+      "name": "Ashura",
+      "type": "Executive Order",
+      "remarks": "Subject to moon sighting"
+    },
+    {
+      "date": "2026-08-05",
+      "name": "July Uprising Day",
+      "type": "General"
+    },
+    {
+      "date": "2026-08-26",
+      "name": "Eid-e-Milad un-Nabi",
+      "type": "General",
+      "remarks": "Subject to moon sighting"
+    },
+    {
+      "date": "2026-09-04",
+      "name": "Shuba Janmashtami",
+      "type": "General"
+    },
+    {
+      "date": "2026-10-20",
+      "name": "Durga Puja (Nabami)",
+      "type": "Executive Order"
+    },
+    {
+      "date": "2026-10-21",
+      "name": "Durga Puja (Vijaya Dashami)",
+      "type": "General"
+    },
+    {
+      "date": "2026-12-16",
+      "name": "Victory Day",
+      "type": "General"
+    },
+    {
+      "date": "2026-12-25",
+      "name": "Christmas Day",
+      "type": "General"
+    }
+  ]
+}
