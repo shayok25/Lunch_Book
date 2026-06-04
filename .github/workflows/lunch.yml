@@ -1,0 +1,58 @@
+name: Auto Lunch Booking
+
+on:
+  schedule:
+    # Sunday–Thursday at 08:00 AM Bangladesh time (UTC+6)
+    - cron: '0 2 * * 0,1,2,3,4'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  book-lunch:
+    runs-on: ubuntu-latest
+
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-jammy
+
+    timeout-minutes: 20
+
+    env:
+      ULKA_AUTH_JSON: ${{ secrets.ULKA_AUTH_JSON }}
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Clean old artifacts
+        run: |
+          rm -f final-state.png
+          rm -f booking-status.txt
+          rm -f ulka-auth.json
+
+      - name: Run lunch booking bot
+        run: node auto-run.js
+
+      - name: Commit screenshot (only if booked)
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
+
+          if [ -f booking-status.txt ]; then
+            STATUS=$(cat booking-status.txt)
+
+            if [ "$STATUS" = "BOOKED" ]; then
+              git config user.name "github-actions"
+              git config user.email "github-actions@github.com"
+
+              git add final-state.png
+
+              if ! git diff --cached --quiet; then
+                git commit -m "📸 Update lunch booking screenshot [auto]"
+                git push origin HEAD:${GITHUB_REF_NAME}
+              fi
+            fi
+          fi
